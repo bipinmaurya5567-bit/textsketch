@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TextSketch &#8211; Paste text, get a diagram</title>
+  <meta name="description" content="Paste any text and get an interactive SVG diagram instantly &#8211; flowcharts, timelines, and mind maps." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* -- Design tokens ------------------------------------- */
+    :root {
+      --color-bg:          #f8fafc;
+      --color-surface:     #ffffff;
+      --color-border:      #e2e8f0;
+      --color-text:        #0f172a;
+      --color-text-muted:  #64748b;
+      --color-accent:      #6366f1;
+      --color-accent-h:    #4f46e5;
+      --color-error-bg:    #fef2f2;
+      --color-error-text:  #991b1b;
+      --toolbar-h:         56px;
+      --sidebar-w:         340px;
+      --radius:            10px;
+      --shadow:            0 1px 3px rgba(0,0,0,.10), 0 4px 16px rgba(0,0,0,.06);
+      --transition:        .15s ease;
+      font-family: 'Inter', system-ui, sans-serif;
+      color-scheme: light;
+    }
+    [data-theme="dark"] {
+      --color-bg:          #0f172a;
+      --color-surface:     #0f172a;
+      --color-border:      #1e293b;
+      --color-text:        #f1f5f9;
+      --color-text-muted:  #94a3b8;
+      --color-accent:      #818cf8;
+      --color-accent-h:    #6366f1;
+      --color-error-bg:    #3b1a1a;
+      --color-error-text:  #fca5a5;
+      color-scheme: dark;
+    }
+
+    /* -- Reset --------------------------------------------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--color-bg);
+      color: var(--color-text);
+      display: flex;
+      flex-direction: column;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* -- Toolbar ------------------------------------------- */
+    #toolbar {
+      height: var(--toolbar-h);
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow);
+      z-index: 10;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--color-accent);
+      letter-spacing: -.5px;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+    .logo span { color: var(--color-text-muted); font-weight: 400; font-size: 13px; }
+
+    .toolbar-sep {
+      width: 1px;
+      height: 26px;
+      background: var(--color-border);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* -- Buttons ------------------------------------------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 32px;
+      padding: 0 11px;
+      border: 1px solid var(--color-border);
+      border-radius: 7px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      font: 500 12px 'Inter', sans-serif;
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+      white-space: nowrap;
+      text-decoration: none;
+      user-select: none;
+    }
+    .btn:hover, .btn:focus-visible {
+      background: var(--color-border);
+      border-color: var(--color-accent);
+      outline: none;
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent);
+    }
+    .btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent); }
+    .btn-accent {
+      background: var(--color-accent);
+      color: #fff;
+      border-color: var(--color-accent-h);
+    }
+    .btn-accent:hover, .btn-accent:focus-visible {
+      background: var(--color-accent-h);
+      border-color: var(--color-accent-h);
+    }
+    .btn-sm { height: 26px; padding: 0 9px; font-size: 11px; }
+    .btn-active, .btn[aria-pressed="true"] {
+      background: var(--color-accent);
+      color: #fff;
+      border-color: var(--color-accent-h);
+    }
+    .btn-generate {
+      background: var(--color-accent);
+      color: #fff;
+      border-color: var(--color-accent-h);
+      font-weight: 600;
+      gap: 5px;
+      min-width: 110px;
+      justify-content: center;
+    }
+    .btn-generate:hover:not(:disabled), .btn-generate:focus-visible:not(:disabled) {
+      background: var(--color-accent-h);
+    }
+    .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+    .type-group { display: flex; gap: 3px; }
+    .type-group .btn { border-radius: 6px; font-size: 11px; padding: 0 9px; }
+
+    /* -- Samples dropdown ---------------------------------- */
+    #samples-select {
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--color-border);
+      border-radius: 7px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      font: 500 12px 'Inter', sans-serif;
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--transition);
+      max-width: 200px;
+    }
+    #samples-select:focus { border-color: var(--color-accent); }
+
+    /* -- Main layout --------------------------------------- */
+    #main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* -- Left panel ---------------------------------------- */
+    #left-panel {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--color-border);
+      background: var(--color-surface);
+      z-index: 2;
+    }
+
+    #left-header {
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    #left-header h2 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    #char-count { font-size: 11px; color: var(--color-text-muted); }
+
+    #text-input {
+      flex: 1;
+      resize: none;
+      border: none;
+      outline: none;
+      padding: 12px;
+      font: 13px/1.6 'Inter', monospace;
+      background: var(--color-surface);
+      color: var(--color-text);
+      transition: background var(--transition), color var(--transition);
+    }
+    #text-input::placeholder { color: var(--color-text-muted); }
+    #text-input:focus { outline: none; box-shadow: inset 2px 0 0 var(--color-accent); }
+
+    /* -- History panel ------------------------------------- */
+    #history-panel {
+      border-top: 1px solid var(--color-border);
+      flex-shrink: 0;
+      max-height: 220px;
+      overflow-y: auto;
+      transition: max-height var(--transition);
+    }
+    #history-panel[aria-hidden="true"] { max-height: 0; overflow: hidden; }
+    #history-header {
+      padding: 7px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #history-list { padding: 4px 0; }
+    .hist-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      gap: 6px;
+    }
+    .hist-row:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+    .hist-info { display: flex; align-items: center; gap: 5px; min-width: 0; flex: 1; }
+    .hist-type {
+      font-size: 10px; font-weight: 600; padding: 1px 5px;
+      border-radius: 4px; background: var(--color-border);
+      color: var(--color-text-muted); flex-shrink: 0;
+    }
+    .hist-title {
+      font-size: 12px; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; cursor: pointer;
+    }
+    .hist-title:hover { color: var(--color-accent); }
+    .hist-rename-inp {
+      font-size: 12px; border: 1px solid var(--color-accent); border-radius: 4px;
+      padding: 1px 4px; background: var(--color-surface); color: var(--color-text);
+      outline: none; width: 120px;
+    }
+    .hist-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .hist-del { color: var(--color-text-muted); }
+    .hist-del:hover { color: #ef4444; border-color: #ef4444; }
+    .hist-empty { padding: 10px 12px; font-size: 12px; color: var(--color-text-muted); }
+
+    /* -- Right panel --------------------------------------- */
+    #right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* -- Canvas toolbar ------------------------------------ */
+    #canvas-toolbar {
+      height: 36px;
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      flex-shrink: 0;
+    }
+    #canvas-toolbar span { font-size: 11px; color: var(--color-text-muted); font-weight: 500; }
+
+    /* -- Preview pane -------------------------------------- */
+    #preview-pane {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      background: var(--color-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+    }
+    #preview-pane svg {
+      width: 100%;
+      height: 100%;
+      /* transform applied by canvas.js */
+      transform-origin: 0 0;
+    }
+
+    /* -- Placeholder --------------------------------------- */
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      color: var(--color-text-muted);
+      padding: 40px;
+      text-align: center;
+    }
+    .placeholder svg { opacity: .35; }
+    .placeholder p { font-size: 14px; line-height: 1.6; }
+    .placeholder span { font-size: 12px; opacity: .7; }
+
+    /* -- Spinner ------------------------------------------- */
+    #spinner {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: color-mix(in srgb, var(--color-bg) 70%, transparent);
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      backdrop-filter: blur(2px);
+    }
+    .spin-ring {
+      width: 36px; height: 36px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* -- Error banner -------------------------------------- */
+    #error-banner {
+      display: none;
+      padding: 9px 12px;
+      background: var(--color-error-bg);
+      color: var(--color-error-text);
+      font-size: 13px;
+      font-weight: 500;
+      border-top: 1px solid color-mix(in srgb, var(--color-error-text) 20%, transparent);
+      flex-shrink: 0;
+    }
+
+    /* -- Export bar ---------------------------------------- */
+    #export-bar {
+      height: 40px;
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      flex-shrink: 0;
+    }
+    #export-bar span { font-size: 11px; color: var(--color-text-muted); font-weight: 500; margin-right: 2px; }
+
+    /* -- Toast --------------------------------------------- */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 100;
+      animation: fadeInUp .2s ease, fadeOut .3s ease 2.2s forwards;
+      pointer-events: none;
+    }
+    .toast-success { background: #166534; color: #dcfce7; }
+    .toast-error   { background: #991b1b; color: #fee2e2; }
+    .toast-info    { background: var(--color-accent); color: #fff; }
+    @keyframes fadeInUp  { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    @keyframes fadeOut   { to   { opacity: 0; } }
+
+    /* -- Scrollbar styling --------------------------------- */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+    /* -- Phase 6: Responsive stacked layout under 800px --- */
+    @media (max-width: 800px) {
+      #left-panel { width: 100%; max-height: 38vh; border-right: none; border-bottom: 1px solid var(--color-border); }
+      #main { flex-direction: column; }
+      html, body { overflow: auto; }
+      #text-input { min-height: 80px; }
+      #history-panel { max-height: 140px; }
+    }
+    /* -- Hide JSON import file input ---------------------- */
+    #json-import-file { display: none; }
+
+    /* Screen-reader only */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+
+<!-- -- Toolbar --------------------------------------------- -->
+<header id="toolbar" role="banner">
+  <div class="logo">TextSketch <span>v0.2</span></div>
+  <h1 class="sr-only">TextSketch – Paste text, get a diagram</h1>
+  <div class="toolbar-sep"></div>
+
+  <label for="samples-select" class="sr-only">Load sample diagram</label>
+  <select id="samples-select" title="Load a sample diagram">
+    <option value="">&#9889; Samples&#8230;</option>
+  </select>
+
+  <div class="toolbar-sep"></div>
+
+  <!-- Diagram type selector -->
+  <div class="type-group" role="group" aria-label="Diagram type">
+    <button class="btn btn-active" data-type="auto"      aria-pressed="true"  title="Let AI choose the best diagram type">Auto</button>
+    <button class="btn"            data-type="flowchart" aria-pressed="false" title="Force flowchart output">Flowchart</button>
+    <button class="btn"            data-type="timeline"  aria-pressed="false" title="Force timeline output">Timeline</button>
+    <button class="btn"            data-type="mindmap"   aria-pressed="false" title="Force mind map output">Mind Map</button>
+  </div>
+
+  <div class="toolbar-sep"></div>
+
+  <!-- Generate button -->
+  <button id="btn-generate" class="btn btn-generate" title="Call AI to generate diagram (Ctrl+Enter)">&#10022; Generate</button>
+
+  <div style="flex:1"></div>
+
+  <button id="btn-history" class="btn" title="Toggle history panel">&#128203; History</button>
+  <button id="btn-share"   class="btn" title="Copy shareable link to clipboard">&#128279; Share</button>
+  <button id="btn-theme"   class="btn" title="Toggle light / dark theme">&#127769; Dark</button>
+</header>
+
+<!-- -- Main layout ----------------------------------------- -->
+<main id="main" role="main">
+
+  <!-- Left: text input -->
+  <section id="left-panel" aria-label="Text input panel">
+    <div id="left-header">
+      <h2>Input</h2>
+      <span id="char-count">0 / 4000</span>
+    </div>
+    <textarea
+      id="text-input"
+      placeholder="Paste a meeting note, project plan, or any text&#8230;&#10;Or pick a sample from the dropdown above.&#10;&#10;Tip: Ctrl+Enter to generate."
+      maxlength="4000"
+      spellcheck="false"
+      aria-label="Diagram source text"
+    ></textarea>
+
+    <!-- History panel (collapsible) -->
+    <div id="history-panel" aria-hidden="true" aria-label="Diagram history">
+      <div id="history-header">
+        <span>Recent diagrams</span>
+      </div>
+      <div id="history-list" role="list"></div>
+    </div>
+  </section>
+
+  <!-- Right: diagram preview -->
+  <section id="right-panel" aria-label="Diagram preview panel">
+
+    <!-- Canvas toolbar (Phase 2) -->
+    <div id="canvas-toolbar" aria-label="Canvas controls">
+      <span>Zoom:</span>
+      <button id="btn-fit" class="btn btn-sm" title="Fit diagram to window">Fit</button>
+      <button id="btn-100" class="btn btn-sm" title="Reset to 100%">100%</button>
+    </div>
+
+    <div id="preview-pane" aria-live="polite" aria-label="Rendered diagram">
+      <!-- SVG injected here by app.js -->
+    </div>
+
+    <!-- Spinner overlay -->
+    <div id="spinner" role="status" aria-label="Generating diagram">
+      <div class="spin-ring"></div>
+    </div>
+
+    <!-- Error banner -->
+    <div id="error-banner" role="alert"></div>
+
+    <!-- Export bar -->
+    <footer id="export-bar">
+      <span>Export:</span>
+      <button id="btn-export-svg" class="btn btn-sm" title="Download as SVG file">SVG &#8595;</button>
+      <button id="btn-export-png" class="btn btn-sm" title="Download as PNG file">PNG &#8595;</button>
+      <button id="btn-copy-png"   class="btn btn-sm" title="Copy PNG to clipboard">Copy PNG</button>
+      <div class="toolbar-sep"></div>
+      <span>JSON:</span>
+      <button id="btn-json-export" class="btn btn-sm" title="Export diagram JSON">Export</button>
+      <button id="btn-json-import" class="btn btn-sm" title="Import diagram JSON">Import</button>
+      <input  id="json-import-file" type="file" accept=".json,application/json" aria-hidden="true" tabindex="-1" />
+    </footer>
+  </section>
+
+</main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+// themes.js — light and dark colour token objects (from design.md §4f)
+export const themes = {
+  light: {
+    bg:           '#ffffff',
+    nodeStroke:   '#334155',
+    nodeFill:     '#f1f5f9',
+    nodeText:     '#0f172a',
+    edgeStroke:   '#64748b',
+    edgeLabel:    '#475569',
+    startFill:    '#dcfce7',
+    endFill:      '#fef2f2',
+    decisionFill: '#fef9c3',
+    spineLine:    '#94a3b8',
+    accent:       '#6366f1',
+    titleText:    '#1e293b',
+  },
+  dark: {
+    bg:           '#0f172a',
+    nodeStroke:   '#94a3b8',
+    nodeFill:     '#1e293b',
+    nodeText:     '#f1f5f9',
+    edgeStroke:   '#475569',
+    edgeLabel:    '#94a3b8',
+    startFill:    '#166534',
+    endFill:      '#7f1d1d',
+    decisionFill: '#713f12',
+    spineLine:    '#334155',
+    accent:       '#818cf8',
+    titleText:    '#cbd5e1',
+  },
+};
